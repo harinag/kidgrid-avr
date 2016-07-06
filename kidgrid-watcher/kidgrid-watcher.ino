@@ -7,11 +7,16 @@
 */
 
 #define IRQ_PIN 2
+#define LED_PIN 13
+#define IRQ_NO 0
+#define LOG_SIZE 5
 
-const unsigned char irq = digitalPinToInterrupt(IRQ_PIN);
-unsigned long last_time = millis();
-unsigned short time_diff = 0;
-volatile unsigned char irq_flag = 0;
+uint64_t last_time = millis();
+uint32_t time_diff = 0;
+volatile uint8_t irq_flag = 0;
+// IRQ detected millis array
+uint32_t blinklog[LOG_SIZE];
+uint8_t  logcntr = 0;
 
 
 void setup() 
@@ -26,13 +31,13 @@ void setup()
   ACSR &= ~(1<<3);  // disable interrupt
   ACSR |= 1<<7;
   // Put down MCU freq to 4 Mhz
-  CLKPR = 0b10000000;
-  CLKPR = 0x02;  
+  //CLKPR = 0b10000000;
+  //CLKPR = 0x02;  
   // Set sleep params
   SMCR |= 1;          // enable sleep
   SMCR &= 0b11110001; // IDLE mode
   // INTERRUPT ATTACH
-  attachInterrupt(irq, onwakeup, FALLING);
+  attachInterrupt(IRQ_NO, onwakeup, FALLING);
 }
 
 
@@ -42,18 +47,29 @@ void loop()
     if (millis()-last_time < 100) goto a;
     time_diff = millis() - last_time;
 	  last_time = millis();
-  	/*
-      add to array or send to coordinator
-    */
+  	/* Add timediff to array */
+    blinklog[logcntr++] = time_diff;
+    if (logcntr == LOG_SIZE) {
+      // send <LOG_SIZE> array values to UART
+      for (int i=0; i<LOG_SIZE; i++) {
+        Serial.print(blinklog[i]);
+        Serial.print('|');
+      }
+      Serial.write('#');  // end of data pack
+      digitalWrite(LED_PIN, HIGH);
+      Serial.flush();
+      digitalWrite(LED_PIN, LOW);
+      logcntr=0;
+    }
     a:
     irq_flag=0;
-	  attachInterrupt(irq, onwakeup, FALLING);
+	  attachInterrupt(IRQ_NO, onwakeup, FALLING);
   }
   __asm__  __volatile__("sleep");  // go sleep
 }
 
 
 void onwakeup() {
-  detachInterrupt(irq);
+  detachInterrupt(IRQ_NO);
   irq_flag++;
 }
