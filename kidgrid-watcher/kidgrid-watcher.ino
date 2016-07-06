@@ -25,6 +25,9 @@ void setup()
   // disable ADC
   ACSR &= ~(1<<3);  // disable interrupt
   ACSR |= 1<<7;
+  // Put down MCU freq to 4 Mhz
+  CLKPR = 0b10000000;
+  CLKPR = 0x02;  
   // Set sleep params
   SMCR |= 1;          // enable sleep
   SMCR &= 0b11110001; // IDLE mode
@@ -38,13 +41,13 @@ void loop()
   if (irq_flag) {
     if (millis()-last_time < 100) goto a;
     time_diff = millis() - last_time;
-	last_time = millis();
-	/*
+	  last_time = millis();
+  	/*
       add to array or send to coordinator
     */
     a:
     irq_flag=0;
-	attachInterrupt(irq, onwakeup, FALLING);
+	  attachInterrupt(irq, onwakeup, FALLING);
   }
   __asm__  __volatile__("sleep");  // go sleep
 }
